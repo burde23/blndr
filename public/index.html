@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>BLNDR.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --surface2: #1c1c27;
+  --surface3: #242433;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #f0f0f8;
+  --text2: #9090b0;
+  --text3: #5a5a7a;
+  --accent: #c8ff00;
+  --accent2: #a8d400;
+  --accent-dark: #0a0f00;
+  --r: 14px;
+  --rsm: 9px;
+  --rxs: 6px;
+  --sidebar-w: 250px;
+  --topbar-h: 56px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+h1,h2,h3,h4,h5{font-family:'Syne',sans-serif}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px}
+input,select,textarea,button{font-family:'DM Sans',sans-serif;font-size:14px}
+
+/* ── LAYOUT ── */
+#app-shell{display:flex;height:100vh;position:relative;overflow:hidden}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  height:100%;overflow:hidden;
+  transition:transform .25s cubic-bezier(.4,0,.2,1), width .25s cubic-bezier(.4,0,.2,1);
+  z-index:200;
+}
+#sidebar.collapsed{width:0;transform:translateX(-100%)}
+
+/* Mobile: sidebar overlays */
+@media(max-width:768px){
+  #sidebar{position:fixed;left:0;top:0;height:100%;z-index:300;transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  #sidebar-overlay{display:block}
+}
+#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:299;backdrop-filter:blur(2px)}
+
+.sidebar-inner{display:flex;flex-direction:column;height:100%;overflow:hidden;min-width:var(--sidebar-w)}
+.s-logo{padding:18px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.s-logo-text{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px}
+.s-logo-text span{color:var(--accent)}
+.s-logo-sub{font-size:11px;color:var(--text3);margin-top:1px}
+
+.s-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0}
+.s-section{padding:12px 18px 4px;font-size:9px;color:var(--text3);font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+.s-item{
+  display:flex;align-items:center;gap:9px;padding:9px 18px;
+  cursor:pointer;border:none;background:none;width:100%;text-align:left;
+  color:var(--text2);font-size:13px;transition:background .12s,color .12s;border-radius:0;
+  white-space:nowrap;
+}
+.s-item:hover{background:var(--surface2);color:var(--text)}
+.s-item.active{background:var(--surface2);color:var(--accent)}
+.s-item .ico{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+
+.s-friends{padding:4px 0}
+.s-friend{display:flex;align-items:center;gap:9px;padding:7px 18px}
+.s-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.s-fname{font-size:12px;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+.s-bottom{flex-shrink:0;border-top:1px solid var(--border);padding:14px 18px}
+.s-user{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.s-user-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.s-user-name{font-size:13px;font-weight:600;line-height:1.2}
+.s-user-sub{font-size:10px;color:var(--text3)}
+.btn-logout{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:var(--rxs);font-size:12px;cursor:pointer;transition:all .15s}
+.btn-logout:hover{border-color:#ff6b6b;color:#ff6b6b}
+
+/* ── MAIN AREA ── */
+#main-area{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;overflow:hidden}
+
+/* ── TOPBAR ── */
+#topbar{
+  height:var(--topbar-h);flex-shrink:0;
+  display:flex;align-items:center;gap:12px;
+  padding:0 16px;border-bottom:1px solid var(--border);
+  background:var(--surface);position:relative;z-index:100;
+}
+#menu-btn{
+  width:36px;height:36px;border-radius:var(--rxs);border:1px solid var(--border);
+  background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .15s;color:var(--text2);font-size:18px;
+}
+#menu-btn:hover{border-color:var(--border2);color:var(--text)}
+.topbar-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-logo{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.5px}
+.topbar-logo span{color:var(--accent)}
+.btn-accent{background:var(--accent);color:var(--accent-dark);border:none;padding:8px 14px;border-radius:var(--rxs);font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.btn-accent:hover{background:var(--accent2)}
+.btn-accent:active{transform:scale(.97)}
+
+/* ── CONTENT AREA ── */
+#content{flex:1;overflow-y:auto;overflow-x:hidden}
+
+/* ── VIEWS ── */
+.view{display:none;animation:fadeIn .2s ease}
+.view.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+.view-pad{padding:16px}
+@media(min-width:600px){.view-pad{padding:24px 28px}}
+
+/* ── STATS ── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);padding:12px 14px}
+.sc-num{font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--accent)}
+.sc-label{font-size:10px;color:var(--text2);margin-top:1px;line-height:1.3}
+
+/* ── PREDICTIONS ── */
+.pred-section{margin-bottom:20px}
+.pred-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.pred-header h3{font-size:14px;font-weight:700}
+.pred-badge{background:var(--accent);color:var(--accent-dark);font-size:9px;font-weight:800;padding:2px 7px;border-radius:3px;font-family:'Syne',sans-serif}
+.pred-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.pred-scroll::-webkit-scrollbar{display:none}
+.pred-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);padding:14px;flex-shrink:0;width:160px}
+.pred-card.top{border-color:rgba(200,255,0,.4);background:rgba(200,255,0,.05)}
+.pc-date{font-size:12px;font-weight:700;font-family:'Syne',sans-serif;margin-bottom:2px}
+.pc-score{font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--accent)}
+.pc-sub{font-size:10px;color:var(--text3);margin-bottom:8px}
+.pred-bar{height:3px;background:var(--surface3);border-radius:2px;overflow:hidden}
+.pred-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s}
+.pred-avatars{display:flex;margin-top:8px}
+.pred-av{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:10px;margin-left:-5px}
+.pred-av:first-child{margin-left:0}
+
+/* ── CALENDAR ── */
+.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.cal-nav h3{flex:1;font-size:16px;font-weight:700;text-align:center}
+.cal-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:var(--rxs);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.cal-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dh{text-align:center;font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:6px 0}
+.cal-cell{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:6px;padding:5px 4px;cursor:pointer;
+  transition:all .12s;min-height:0;position:relative;overflow:hidden;
+  aspect-ratio:auto;
+}
+@media(min-width:500px){.cal-cell{min-height:70px}}
+@media(min-width:768px){.cal-cell{min-height:88px}}
+.cal-cell:hover{border-color:var(--border2);background:var(--surface2)}
+.cal-cell.other{opacity:.25;pointer-events:none}
+.cal-cell.today{border-color:var(--accent)}
+.cal-cell.best{background:rgba(200,255,0,.06);border-color:rgba(200,255,0,.28)}
+.cal-dn{font-size:10px;font-weight:600;color:var(--text2);margin-bottom:3px;display:block}
+.cal-cell.today .cal-dn{color:var(--accent)}
+.cal-ev{font-size:8px;padding:1px 4px;border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-weight:600;display:block}
+@media(min-width:500px){.cal-ev{font-size:9px;padding:2px 4px}}
+.best-badge{position:absolute;top:3px;right:3px;background:var(--accent);color:var(--accent-dark);font-size:7px;font-weight:900;padding:1px 4px;border-radius:2px;font-family:'Syne',sans-serif}
+
+/* ── LEGEND ── */
+.legend{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--surface)}
+@media(min-width:600px){.legend{padding:12px 28px}}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── WEEK VIEW ── */
+.week-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.week-grid{display:grid;gap:1px;background:var(--border);border-radius:var(--rsm);overflow:hidden;min-width:520px}
+.wg-col{display:contents}
+.wg-head{background:var(--surface2);padding:8px 4px;text-align:center;font-size:10px;color:var(--text2);font-weight:700;font-family:'Syne',sans-serif}
+.wg-time{background:var(--surface);padding:3px 6px;text-align:right;font-size:9px;color:var(--text3)}
+.wg-cell{background:var(--surface);min-height:32px;position:relative;cursor:pointer;transition:background .1s}
+.wg-cell:hover{background:var(--surface2)}
+.wg-ev{position:absolute;left:2px;right:2px;border-radius:3px;font-size:8px;padding:2px 3px;color:#fff;font-weight:700;overflow:hidden;z-index:2;pointer-events:none}
+
+/* ── AVAILABILITY ── */
+.avail-list{display:flex;flex-direction:column;gap:12px}
+.avail-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.avail-user{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.avail-events{}
+.avail-ev{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.avail-ev:last-child{border-bottom:none}
+.avail-ev-dot{width:3px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:40px}
+.avail-ev-info{}
+.avail-ev-title{font-size:13px;font-weight:600;margin-bottom:2px}
+.avail-ev-sub{font-size:11px;color:var(--text2)}
+.ev-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;margin-left:auto;padding:4px 8px;border-radius:var(--rxs);transition:all .15s}
+.ev-del:hover{color:#ff6b6b;background:rgba(255,107,107,.08)}
+.empty-state{text-align:center;padding:48px 16px;color:var(--text3)}
+.empty-state .ei{font-size:36px;margin-bottom:10px}
+.empty-state p{font-size:13px}
+
+/* ── PROFILE ── */
+.profile-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:24px;max-width:480px}
+.profile-av-big{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:16px;border:2px solid var(--border2)}
+.section-label{font-size:9px;color:var(--text2);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:block}
+.avatar-pick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.av-opt{width:40px;height:40px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--surface2)}
+.av-opt.sel{border-color:var(--accent)}
+.color-pick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.c-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;flex-shrink:0}
+.c-dot.sel{border-color:#fff;transform:scale(1.15)}
+
+/* ── AUTH ── */
+#auth-screen{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);z-index:9999;padding:16px;
+}
+.auth-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:32px 28px;width:100%;max-width:400px}
+.auth-logo{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;letter-spacing:-1px;margin-bottom:4px}
+.auth-logo span{color:var(--accent)}
+.auth-sub{color:var(--text2);font-size:13px;margin-bottom:24px}
+.auth-tabs{display:flex;gap:3px;background:var(--surface2);border-radius:var(--rsm);padding:3px;margin-bottom:22px}
+.auth-tab{flex:1;padding:8px;text-align:center;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .2s;border:none;background:none;font-family:'Syne',sans-serif}
+.auth-tab.active{background:var(--surface3);color:var(--text)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:10px;color:var(--text2);margin-bottom:5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 12px;color:var(--text);font-size:14px;outline:none;transition:border .2s}
+.field input:focus{border-color:var(--accent)}
+.btn-main{width:100%;background:var(--accent);color:var(--accent-dark);border:none;border-radius:var(--rsm);padding:12px;font-size:14px;font-weight:800;font-family:'Syne',sans-serif;cursor:pointer;transition:all .2s;letter-spacing:.3px}
+.btn-main:hover{background:var(--accent2)}
+.btn-main:active{transform:scale(.98)}
+.auth-error{color:#ff6b6b;font-size:12px;margin-top:10px;text-align:center;min-height:16px}
+.loading-dots::after{content:'...';animation:dots 1.2s steps(4,end) infinite}
+@keyframes dots{0%,20%{content:''}40%{content:'.'}60%{content:'..'}80%,100%{content:'...'}}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
+@media(min-width:600px){.modal-overlay{align-items:center}}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-height:92vh;overflow-y:auto}
+@media(min-width:600px){.modal{border-radius:20px;width:460px;max-height:88vh;padding:28px 26px}}
+.modal h3{font-size:17px;margin-bottom:20px}
+.modal-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:10px;color:var(--text2);margin-bottom:5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rxs);padding:9px 11px;color:var(--text);font-size:13px;outline:none;transition:border .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group select option{background:var(--surface2)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+.btn-cancel{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:9px 16px;border-radius:var(--rxs);font-size:13px;cursor:pointer;transition:all .15s}
+.btn-cancel:hover{border-color:var(--border2);color:var(--text)}
+
+/* ── TYPE BUTTONS ── */
+.dtype-row{display:flex;gap:6px;flex-wrap:wrap}
+.dtype-btn{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.dtype-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(200,255,0,.08)}
+
+/* ── MAP ── */
+#map-container{height:220px;background:var(--surface2);border-radius:var(--rxs);border:1px solid var(--border);margin-top:8px;position:relative;overflow:hidden}
+#leaflet-map{width:100%;height:100%;display:none}
+.map-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--text3);font-size:12px}
+
+/* ── NOTIFICATION ── */
+#notif{position:fixed;bottom:20px;right:16px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rsm);padding:12px 18px;font-size:13px;z-index:9999;opacity:0;transform:translateY(8px);transition:all .25s;max-width:280px;pointer-events:none}
+#notif.show{opacity:1;transform:translateY(0)}
+#notif.ok{border-color:var(--accent);color:var(--accent)}
+#notif.fail{border-color:#ff6b6b;color:#ff6b6b}
+
+/* ── LOADER ── */
+#page-loader{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.loader-logo{font-family:'Syne',sans-serif;font-size:32px;font-weight:800}
+.loader-logo span{color:var(--accent)}
+.loader-bar{width:120px;height:2px;background:var(--surface3);border-radius:1px;overflow:hidden}
+.loader-bar-fill{height:100%;background:var(--accent);border-radius:1px;animation:load 1.5s ease-in-out infinite}
+@keyframes load{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="page-loader">
+  <div class="loader-logo">BLNDR<span>.</span></div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<!-- AUTH -->
+<div id="auth-screen" class="hidden">
+  <div class="auth-box">
+    <div class="auth-logo">BLNDR<span>.</span></div>
+    <div class="auth-sub">Encontrá el momento perfecto para juntarse 🍃</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="authTab('login')">Ingresar</button>
+      <button class="auth-tab" onclick="authTab('register')">Registrarse</button>
+    </div>
+    <div id="login-form">
+      <div class="field"><label>Usuario</label><input id="l-user" type="text" placeholder="tu_usuario" autocomplete="username" autocapitalize="none"></div>
+      <div class="field"><label>Contraseña</label><input id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn-main" onclick="doLogin()" id="btn-login">Entrar</button>
+    </div>
+    <div id="register-form" class="hidden">
+      <div class="field"><label>Nombre</label><input id="r-name" type="text" placeholder="Tu nombre" autocapitalize="words"></div>
+      <div class="field"><label>Usuario</label><input id="r-user" type="text" placeholder="tu_usuario" autocapitalize="none"></div>
+      <div class="field"><label>Contraseña</label><input id="r-pass" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+      <div class="field">
+        <label>Avatar</label>
+        <div class="avatar-pick" id="reg-av-pick">
+          <div class="av-opt sel" data-e="🦋" onclick="pickRegAv(this)">🦋</div>
+          <div class="av-opt" data-e="🌸" onclick="pickRegAv(this)">🌸</div>
+          <div class="av-opt" data-e="🌙" onclick="pickRegAv(this)">🌙</div>
+          <div class="av-opt" data-e="⚡" onclick="pickRegAv(this)">⚡</div>
+          <div class="av-opt" data-e="🌊" onclick="pickRegAv(this)">🌊</div>
+          <div class="av-opt" data-e="🔥" onclick="pickRegAv(this)">🔥</div>
+          <div class="av-opt" data-e="🌺" onclick="pickRegAv(this)">🌺</div>
+          <div class="av-opt" data-e="🍄" onclick="pickRegAv(this)">🍄</div>
+          <div class="av-opt" data-e="🎸" onclick="pickRegAv(this)">🎸</div>
+          <div class="av-opt" data-e="🦊" onclick="pickRegAv(this)">🦊</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Color</label>
+        <div class="color-pick" id="reg-color-pick">
+          <div class="c-dot sel" style="background:#c8ff00" data-c="#c8ff00" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#ff6b9d" data-c="#ff6b9d" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#7c6fff" data-c="#7c6fff" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#00cfff" data-c="#00cfff" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#ff9f43" data-c="#ff9f43" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#26de81" data-c="#26de81" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#fd79a8" data-c="#fd79a8" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#fdcb6e" data-c="#fdcb6e" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#e17055" data-c="#e17055" onclick="pickRegColor(this)"></div>
+          <div class="c-dot" style="background:#a29bfe" data-c="#a29bfe" onclick="pickRegColor(this)"></div>
+        </div>
+      </div>
+      <button class="btn-main" onclick="doRegister()" id="btn-register">Crear cuenta</button>
+    </div>
+    <div class="auth-error" id="auth-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-shell" class="hidden">
+  <!-- Overlay for mobile sidebar -->
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-inner">
+      <div class="s-logo">
+        <div class="s-logo-text">BLNDR<span>.</span></div>
+        <div class="s-logo-sub">calendario grupal</div>
+      </div>
+      <div class="s-scroll">
+        <div class="s-section">Vistas</div>
+        <button class="s-item active" id="nav-calendar" onclick="showView('calendar')"><span class="ico">📅</span>Calendario</button>
+        <button class="s-item" id="nav-week" onclick="showView('week')"><span class="ico">📆</span>Semana</button>
+        <button class="s-item" id="nav-avail" onclick="showView('avail')"><span class="ico">⏰</span>Disponibilidades</button>
+        <button class="s-item" id="nav-profile" onclick="showView('profile')"><span class="ico">✨</span>Mi perfil</button>
+        <div class="s-section" style="margin-top:6px">Amigas</div>
+        <div id="friends-list" class="s-friends"></div>
+      </div>
+      <div class="s-bottom">
+        <div class="s-user" id="s-user-chip"></div>
+        <button class="btn-logout" onclick="doLogout()">Cerrar sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main-area">
+    <div id="topbar">
+      <button id="menu-btn" onclick="toggleSidebar()" aria-label="Menú">☰</button>
+      <div class="topbar-logo" id="tb-logo">BLNDR<span>.</span></div>
+      <div class="topbar-title hidden" id="tb-title"></div>
+      <button class="btn-accent" onclick="openModal()" id="tb-add-btn">+ Agregar</button>
+    </div>
+
+    <div id="content">
+      <!-- CALENDAR -->
+      <div class="view active" id="view-calendar">
+        <div class="view-pad">
+          <div class="stats-row" id="stats-row"></div>
+          <div class="pred-section">
+            <div class="pred-header">
+              <h3>🔮 Mejores días</h3>
+              <span class="pred-badge">IA</span>
+            </div>
+            <div class="pred-scroll" id="pred-scroll"></div>
+          </div>
+          <div class="cal-nav">
+            <button class="cal-btn" onclick="calMonth(-1)">‹</button>
+            <h3 id="cal-title">—</h3>
+            <button class="cal-btn" onclick="calMonth(1)">›</button>
+          </div>
+          <div class="cal-grid" id="cal-grid">
+            <div class="cal-dh">L</div><div class="cal-dh">M</div><div class="cal-dh">M</div>
+            <div class="cal-dh">J</div><div class="cal-dh">V</div><div class="cal-dh">S</div><div class="cal-dh">D</div>
+          </div>
+        </div>
+        <div class="legend" id="legend-cal"></div>
+      </div>
+
+      <!-- WEEK -->
+      <div class="view hidden" id="view-week">
+        <div class="view-pad">
+          <div class="cal-nav">
+            <button class="cal-btn" onclick="weekNav(-1)">‹</button>
+            <h3 id="week-title">—</h3>
+            <button class="cal-btn" onclick="weekNav(1)">›</button>
+          </div>
+          <div class="week-scroll-wrap">
+            <div id="week-grid-inner"></div>
+          </div>
+        </div>
+        <div class="legend" id="legend-week"></div>
+      </div>
+
+      <!-- AVAILABILITY -->
+      <div class="view hidden" id="view-avail">
+        <div class="view-pad">
+          <div class="avail-list" id="avail-list"></div>
+        </div>
+      </div>
+
+      <!-- PROFILE -->
+      <div class="view hidden" id="view-profile">
+        <div class="view-pad">
+          <div class="profile-card">
+            <div class="profile-av-big" id="prof-av-big"></div>
+            <span class="section-label">Tu avatar</span>
+            <div class="avatar-pick" id="prof-av-pick">
+              <div class="av-opt" data-e="🦋" onclick="pickProfAv(this)">🦋</div>
+              <div class="av-opt" data-e="🌸" onclick="pickProfAv(this)">🌸</div>
+              <div class="av-opt" data-e="🌙" onclick="pickProfAv(this)">🌙</div>
+              <div class="av-opt" data-e="⚡" onclick="pickProfAv(this)">⚡</div>
+              <div class="av-opt" data-e="🌊" onclick="pickProfAv(this)">🌊</div>
+              <div class="av-opt" data-e="🔥" onclick="pickProfAv(this)">🔥</div>
+              <div class="av-opt" data-e="🌺" onclick="pickProfAv(this)">🌺</div>
+              <div class="av-opt" data-e="🍄" onclick="pickProfAv(this)">🍄</div>
+              <div class="av-opt" data-e="🎸" onclick="pickProfAv(this)">🎸</div>
+              <div class="av-opt" data-e="🦊" onclick="pickProfAv(this)">🦊</div>
+            </div>
+            <span class="section-label">Tu color</span>
+            <div class="color-pick" id="prof-color-pick">
+              <div class="c-dot" style="background:#c8ff00" data-c="#c8ff00" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#ff6b9d" data-c="#ff6b9d" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#7c6fff" data-c="#7c6fff" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#00cfff" data-c="#00cfff" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#ff9f43" data-c="#ff9f43" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#26de81" data-c="#26de81" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#fd79a8" data-c="#fd79a8" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#fdcb6e" data-c="#fdcb6e" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#e17055" data-c="#e17055" onclick="pickProfColor(this)"></div>
+              <div class="c-dot" style="background:#a29bfe" data-c="#a29bfe" onclick="pickProfColor(this)"></div>
+            </div>
+            <button class="btn-accent" onclick="saveProfile()">Guardar cambios</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EVENT MODAL -->
+<div class="modal-overlay hidden" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>Agregar horario</h3>
+    <div class="form-group">
+      <label>Tipo</label>
+      <div class="dtype-row" id="modal-type-row">
+        <button class="dtype-btn active" data-t="trabajo" onclick="pickType(this)">💼 Trabajo</button>
+        <button class="dtype-btn" data-t="estudio" onclick="pickType(this)">📚 Estudio</button>
+        <button class="dtype-btn" data-t="juntada" onclick="pickType(this)">🎉 Juntada</button>
+        <button class="dtype-btn" data-t="otro" onclick="pickType(this)">📌 Otro</button>
+      </div>
+    </div>
+    <div class="form-group"><label>Descripción</label><input type="text" id="m-desc" placeholder="Ej: Trabajo en cafetería"></div>
+    <div class="modal-row">
+      <div class="form-group"><label>Fecha inicio</label><input type="date" id="m-date-start"></div>
+      <div class="form-group"><label>Fecha fin</label><input type="date" id="m-date-end"></div>
+    </div>
+    <div class="modal-row">
+      <div class="form-group"><label>Hora inicio</label><input type="time" id="m-time-start" value="09:00"></div>
+      <div class="form-group"><label>Hora fin</label><input type="time" id="m-time-end" value="17:00"></div>
+    </div>
+    <div class="form-group">
+      <label>Días recurrentes</label>
+      <div class="dtype-row" id="modal-days-row">
+        <button class="dtype-btn" data-d="1" onclick="toggleDay(this)">Lun</button>
+        <button class="dtype-btn" data-d="2" onclick="toggleDay(this)">Mar</button>
+        <button class="dtype-btn" data-d="3" onclick="toggleDay(this)">Mié</button>
+        <button class="dtype-btn" data-d="4" onclick="toggleDay(this)">Jue</button>
+        <button class="dtype-btn" data-d="5" onclick="toggleDay(this)">Vie</button>
+        <button class="dtype-btn" data-d="6" onclick="toggleDay(this)">Sáb</button>
+        <button class="dtype-btn" data-d="0" onclick="toggleDay(this)">Dom</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Lugar</label>
+      <input type="text" id="m-location" placeholder="Ej: Biblioteca, Palermo..." oninput="geoDebounce(this.value)">
+      <div id="map-container">
+        <div id="leaflet-map"></div>
+        <div class="map-ph" id="map-ph"><span style="font-size:24px">📍</span><span>Escribí un lugar para ver en el mapa</span></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-accent" onclick="saveEvent()" id="btn-save-ev">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div id="notif"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── STATE ──────────────────────────────────────────────────────────
+let token = localStorage.getItem('blndr_token') || null;
+let me = null;
+let allUsers = [];
+let allEvents = [];
+let calDate = new Date();
+calDate.setDate(1);
+let weekOffset = 0;
+let modalType = 'trabajo';
+let modalDays = [];
+let lMap = null, lMarker = null, geoTimer = null;
+let isMobile = () => window.innerWidth < 769;
+let sidebarOpen = false;
+
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const COLORS = ['#c8ff00','#ff6b9d','#7c6fff','#00cfff','#ff9f43','#26de81','#fd79a8','#fdcb6e','#e17055','#a29bfe'];
+
+// ── API ────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error');
+  return data;
+}
+
+// ── BOOT ───────────────────────────────────────────────────────────
+async function boot() {
+  if (token) {
+    try {
+      const data = await api('GET', '/api/me');
+      me = data.user;
+      await loadAll();
+      showApp();
+    } catch {
+      token = null;
+      localStorage.removeItem('blndr_token');
+      showAuth();
+    }
+  } else {
+    showAuth();
+  }
+  document.getElementById('page-loader').classList.add('hidden');
+}
+
+async function loadAll() {
+  const data = await api('GET', '/api/users');
+  allUsers = data.users;
+  allEvents = data.events;
+}
+
+function showAuth() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app-shell').classList.add('hidden');
+}
+
+function showApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  renderSidebar();
+  showView('calendar');
+  // On desktop, sidebar starts open
+  if (!isMobile()) {
+    document.getElementById('sidebar').classList.remove('collapsed');
+  }
+}
+
+// ── AUTH ───────────────────────────────────────────────────────────
+let regAvatar = '🦋', regColor = '#c8ff00';
+
+function authTab(t) {
+  document.querySelectorAll('.auth-tab').forEach((el,i) => el.classList.toggle('active', (i===0 && t==='login') || (i===1 && t==='register')));
+  document.getElementById('login-form').classList.toggle('hidden', t !== 'login');
+  document.getElementById('register-form').classList.toggle('hidden', t !== 'register');
+  document.getElementById('auth-err').textContent = '';
+}
+
+function pickRegAv(el) {
+  document.querySelectorAll('#reg-av-pick .av-opt').forEach(a => a.classList.remove('sel'));
+  el.classList.add('sel'); regAvatar = el.dataset.e;
+}
+function pickRegColor(el) {
+  document.querySelectorAll('#reg-color-pick .c-dot').forEach(d => d.classList.remove('sel'));
+  el.classList.add('sel'); regColor = el.dataset.c;
+}
+
+function authErr(msg) {
+  document.getElementById('auth-err').textContent = msg;
+  setTimeout(() => document.getElementById('auth-err').textContent = '', 4000);
+}
+
+async function doLogin() {
+  const username = document.getElementById('l-user').value.trim();
+  const password = document.getElementById('l-pass').value;
+  if (!username || !password) { authErr('Completá los campos'); return; }
+  const btn = document.getElementById('btn-login');
+  btn.textContent = 'Entrando'; btn.disabled = true;
+  try {
+    const data = await api('POST', '/api/login', { username, password });
+    token = data.token; me = data.user;
+    localStorage.setItem('blndr_token', token);
+    await loadAll();
+    showApp();
+  } catch(e) { authErr(e.message); }
+  finally { btn.textContent = 'Entrar'; btn.disabled = false; }
+}
+
+async function doRegister() {
+  const name = document.getElementById('r-name').value.trim();
+  const username = document.getElementById('r-user').value.trim();
+  const password = document.getElementById('r-pass').value;
+  if (!name || !username || !password) { authErr('Completá todos los campos'); return; }
+  const btn = document.getElementById('btn-register');
+  btn.textContent = 'Creando'; btn.disabled = true;
+  try {
+    const data = await api('POST', '/api/register', { name, username, password, color: regColor, avatar: regAvatar });
+    token = data.token; me = data.user;
+    localStorage.setItem('blndr_token', token);
+    await loadAll();
+    showApp();
+  } catch(e) { authErr(e.message); }
+  finally { btn.textContent = 'Crear cuenta'; btn.disabled = false; }
+}
+
+function doLogout() {
+  token = null; me = null; allUsers = []; allEvents = [];
+  localStorage.removeItem('blndr_token');
+  showAuth();
+}
+
+// ── SIDEBAR ────────────────────────────────────────────────────────
+function renderSidebar() {
+  // user chip
+  document.getElementById('s-user-chip').innerHTML = `
+    <div class="s-user-av" style="background:${me.color}22">${me.avatar}</div>
+    <div><div class="s-user-name">${me.name}</div><div class="s-user-sub">@${me.username}</div></div>`;
+  // friends
+  const fl = document.getElementById('friends-list');
+  fl.innerHTML = '';
+  allUsers.filter(u => u.id !== me.id).forEach(u => {
+    const d = document.createElement('div');
+    d.className = 's-friend';
+    d.innerHTML = `<div class="s-av" style="background:${u.color}22">${u.avatar}</div><span class="s-fname">${u.name}</span><div class="s-dot" style="background:${u.color}"></div>`;
+    fl.appendChild(d);
+  });
+}
+
+function toggleSidebar() {
+  if (isMobile()) {
+    sidebarOpen = !sidebarOpen;
+    document.getElementById('sidebar').classList.toggle('open', sidebarOpen);
+    document.getElementById('sidebar-overlay').style.display = sidebarOpen ? 'block' : 'none';
+  } else {
+    const sb = document.getElementById('sidebar');
+    sb.classList.toggle('collapsed');
+  }
+}
+
+function closeSidebar() {
+  sidebarOpen = false;
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').style.display = 'none';
+}
+
+// ── NAVIGATION ─────────────────────────────────────────────────────
+const viewTitles = { calendar: 'Calendario', week: 'Semana', avail: 'Disponibilidades', profile: 'Mi perfil' };
+function showView(v) {
+  ['calendar','week','avail','profile'].forEach(id => {
+    document.getElementById(`view-${id}`).classList.toggle('hidden', id !== v);
+    document.getElementById(`view-${id}`).classList.toggle('active', id === v);
+    document.getElementById(`nav-${id === 'avail' ? 'avail' : id}`).classList.toggle('active', id === v);
+  });
+  document.getElementById('tb-title').textContent = viewTitles[v];
+  if (v === 'calendar') renderCalendar();
+  if (v === 'week') renderWeek();
+  if (v === 'avail') renderAvail();
+  if (v === 'profile') renderProfile();
+  if (isMobile()) closeSidebar();
+}
+
+// ── EVENTS HELPERS ─────────────────────────────────────────────────
+function eventsForDate(date) {
+  const dow = date.getDay();
+  const iso = date.toISOString().split('T')[0];
+  return allEvents.filter(ev => {
+    const rd = Array.isArray(ev.recurring_days) ? ev.recurring_days : JSON.parse(ev.recurring_days || '[]');
+    if (rd.length > 0) {
+      if (ev.date_start) { const s = new Date(ev.date_start + 'T00:00:00'); if (date < s) return false; }
+      return rd.includes(dow);
+    }
+    return ev.date_start === iso;
+  });
+}
+
+function userByEvent(ev) {
+  return allUsers.find(u => u.id === ev.user_id) || { color: '#888', avatar: '?', name: '?' };
+}
+
+// ── CALENDAR ───────────────────────────────────────────────────────
+function calMonth(d) { calDate.setMonth(calDate.getMonth() + d); renderCalendar(); }
+
+function bestDays() {
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  const dim = new Date(y, m+1, 0).getDate();
+  let scores = [];
+  for (let d = 1; d <= dim; d++) {
+    const dt = new Date(y, m, d);
+    const evs = eventsForDate(dt);
+    const busy = new Set(evs.map(e => e.user_id));
+    const free = allUsers.length - busy.size;
+    const weekend = [0,6].includes(dt.getDay());
+    scores.push({ d, score: free * 10 + (weekend ? 15 : 0), free, weekend, dt });
+  }
+  return scores.sort((a,b) => b.score - a.score).slice(0,4).map(s => s.d);
+}
+
+function renderCalendar() {
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  document.getElementById('cal-title').textContent = `${MONTHS[m]} ${y}`;
+  const grid = document.getElementById('cal-grid');
+  while (grid.children.length > 7) grid.removeChild(grid.lastChild);
+  const first = new Date(y, m, 1);
+  let sd = first.getDay(); sd = sd === 0 ? 6 : sd - 1;
+  const dim = new Date(y, m+1, 0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const best = bestDays();
+
+  for (let i = 0; i < sd; i++) {
+    const c = document.createElement('div'); c.className = 'cal-cell other';
+    c.innerHTML = `<span class="cal-dn">${new Date(y,m,-sd+i+1).getDate()}</span>`;
+    grid.appendChild(c);
+  }
+  for (let d = 1; d <= dim; d++) {
+    const dt = new Date(y, m, d);
+    const iso = dt.toISOString().split('T')[0];
+    const evs = eventsForDate(dt);
+    const isBest = best.includes(d);
+    const c = document.createElement('div');
+    c.className = 'cal-cell' + (dt.getTime()===today.getTime()?' today':'') + (isBest?' best':'');
+    let evH = evs.slice(0,3).map(ev => {
+      const u = userByEvent(ev);
+      return `<span class="cal-ev" style="background:${u.color}" title="${u.name}: ${ev.description}">${u.avatar} ${ev.description.substring(0,10)}</span>`;
+    }).join('');
+    if (evs.length > 3) evH += `<span style="font-size:8px;color:var(--text3)">+${evs.length-3}</span>`;
+    c.innerHTML = `<span class="cal-dn">${d}</span>${evH}${isBest?'<div class="best-badge">BEST</div>':''}`;
+    c.onclick = () => { document.getElementById('m-date-start').value = iso; openModal(); };
+    grid.appendChild(c);
+  }
+  renderStats();
+  renderPred(y, m, best);
+  renderLegend('legend-cal');
+}
+
+function renderStats() {
+  const total = allEvents.length;
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="sc-num">${allUsers.length}</div><div class="sc-label">en el grupo</div></div>
+    <div class="stat-card"><div class="sc-num">${total}</div><div class="sc-label">horarios cargados</div></div>
+    <div class="stat-card"><div class="sc-num">${bestDays().length}</div><div class="sc-label">mejores días</div></div>`;
+}
+
+function renderPred(y, m, best) {
+  const sc = document.getElementById('pred-scroll');
+  sc.innerHTML = '';
+  best.forEach((d, i) => {
+    const dt = new Date(y, m, d);
+    const evs = eventsForDate(dt);
+    const busyIds = [...new Set(evs.map(e => e.user_id))];
+    const freeUsers = allUsers.filter(u => !busyIds.includes(u.id));
+    const score = Math.round((freeUsers.length / Math.max(allUsers.length,1)) * 70 + ([0,6].includes(dt.getDay()) ? 30 : 10));
+    const dow = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][dt.getDay()];
+    const card = document.createElement('div');
+    card.className = 'pred-card' + (i===0?' top':'');
+    const avs = freeUsers.map(u => `<div class="pred-av" style="background:${u.color}22">${u.avatar}</div>`).join('');
+    card.innerHTML = `<div class="pc-date">${dow} ${d}/${m+1}</div><div class="pc-score">${score}%</div><div class="pc-sub">${freeUsers.length} libre${freeUsers.length!==1?'s':''}</div><div class="pred-bar"><div class="pred-bar-fill" style="width:${score}%"></div></div><div class="pred-avatars" style="margin-top:8px">${avs}</div>`;
+    sc.appendChild(card);
+  });
+}
+
+function renderLegend(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = allUsers.map(u =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${u.color}"></div>${u.avatar} ${u.name}</div>`
+  ).join('') + `<div class="legend-item"><div style="width:10px;height:10px;border:1px solid rgba(200,255,0,.4);border-radius:2px;background:rgba(200,255,0,.06)"></div>Mejor día</div>`;
+}
+
+// ── WEEK VIEW ──────────────────────────────────────────────────────
+function weekNav(d) { weekOffset += d; renderWeek(); }
+
+function renderWeek() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const mon = new Date(today);
+  mon.setDate(today.getDate() - ((today.getDay()+6)%7) + weekOffset*7);
+  const days = Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+  const DOW = ['L','M','M','J','V','S','D'];
+  const hours = Array.from({length:16},(_,i)=>i+7);
+  document.getElementById('week-title').textContent = `${days[0].getDate()} ${MONTHS[days[0].getMonth()].slice(0,3)} — ${days[6].getDate()} ${MONTHS[days[6].getMonth()].slice(0,3)}`;
+  let h = `<div class="week-grid" style="grid-template-columns:44px repeat(7,1fr)">`;
+  h += `<div class="wg-head"></div>` + days.map((d,i)=>`<div class="wg-head">${DOW[i]}<br><span style="font-size:13px;font-weight:800">${d.getDate()}</span></div>`).join('');
+  hours.forEach(hr => {
+    h += `<div class="wg-time">${hr}</div>`;
+    days.forEach(day => {
+      const evs = eventsForDate(day).filter(ev => ev.time_start && parseInt(ev.time_start)===hr);
+      const evH = evs.map(ev => { const u=userByEvent(ev); return `<div class="wg-ev" style="background:${u.color}cc;top:2px;height:28px">${u.avatar}</div>`; }).join('');
+      h += `<div class="wg-cell">${evH}</div>`;
+    });
+  });
+  h += '</div>';
+  document.getElementById('week-grid-inner').innerHTML = h;
+  renderLegend('legend-week');
+}
+
+// ── AVAILABILITY ───────────────────────────────────────────────────
+function renderAvail() {
+  const list = document.getElementById('avail-list');
+  list.innerHTML = '';
+  const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  allUsers.forEach(u => {
+    const myEvs = allEvents.filter(e => e.user_id === u.id);
+    const isMe = u.id === me.id;
+    const card = document.createElement('div');
+    card.className = 'avail-card';
+    let evH = myEvs.length === 0
+      ? '<div style="color:var(--text3);font-size:12px;padding:8px 0">Sin horarios cargados</div>'
+      : myEvs.map(ev => {
+          const rd = Array.isArray(ev.recurring_days) ? ev.recurring_days : JSON.parse(ev.recurring_days||'[]');
+          const dStr = rd.length ? rd.map(d=>DOW[d]).join(', ') : (ev.date_start || '');
+          const icon = ev.type==='trabajo'?'💼':ev.type==='estudio'?'📚':ev.type==='juntada'?'🎉':'📌';
+          const delBtn = isMe ? `<button class="ev-del" onclick="deleteEvent(${ev.id})" title="Eliminar">✕</button>` : '';
+          return `<div class="avail-ev">
+            <div class="avail-ev-dot" style="background:${u.color}"></div>
+            <div class="avail-ev-info" style="flex:1">
+              <div class="avail-ev-title">${icon} ${ev.description}</div>
+              <div class="avail-ev-sub">${dStr} · ${ev.time_start||''}–${ev.time_end||''}${ev.location?` · 📍 ${ev.location}`:''}</div>
+            </div>${delBtn}</div>`;
+        }).join('');
+    card.innerHTML = `
+      <div class="avail-user">
+        <div class="s-av" style="background:${u.color}22;width:36px;height:36px;font-size:18px">${u.avatar}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;font-family:'Syne',sans-serif">${u.name}${isMe?' <span style="font-size:9px;color:var(--accent);background:rgba(200,255,0,.1);padding:1px 6px;border-radius:3px">vos</span>':''}</div>
+          <div style="font-size:10px;color:var(--text3)">@${u.username} · ${myEvs.length} horario${myEvs.length!==1?'s':''}</div>
+        </div>
+      </div>
+      <div class="avail-events">${evH}</div>`;
+    list.appendChild(card);
+  });
+}
+
+async function deleteEvent(id) {
+  try {
+    await api('DELETE', `/api/events/${id}`);
+    allEvents = allEvents.filter(e => e.id !== id);
+    renderAvail();
+    notif('Horario eliminado', 'ok');
+  } catch(e) { notif(e.message, 'fail'); }
+}
+
+// ── PROFILE ────────────────────────────────────────────────────────
+let profAvatar, profColor;
+function renderProfile() {
+  profAvatar = me.avatar; profColor = me.color;
+  const big = document.getElementById('prof-av-big');
+  big.textContent = me.avatar; big.style.background = me.color + '25';
+  document.querySelectorAll('#prof-av-pick .av-opt').forEach(a => a.classList.toggle('sel', a.dataset.e === me.avatar));
+  document.querySelectorAll('#prof-color-pick .c-dot').forEach(d => d.classList.toggle('sel', d.dataset.c === me.color));
+}
+function pickProfAv(el) {
+  document.querySelectorAll('#prof-av-pick .av-opt').forEach(a => a.classList.remove('sel'));
+  el.classList.add('sel'); profAvatar = el.dataset.e;
+  const big = document.getElementById('prof-av-big');
+  big.textContent = profAvatar; big.style.background = profColor + '25';
+}
+function pickProfColor(el) {
+  document.querySelectorAll('#prof-color-pick .c-dot').forEach(d => d.classList.remove('sel'));
+  el.classList.add('sel'); profColor = el.dataset.c;
+  document.getElementById('prof-av-big').style.background = profColor + '25';
+}
+async function saveProfile() {
+  try {
+    const data = await api('PUT', '/api/me', { color: profColor, avatar: profAvatar });
+    me = data.user;
+    // update in allUsers
+    const idx = allUsers.findIndex(u => u.id === me.id);
+    if (idx > -1) allUsers[idx] = { ...allUsers[idx], ...me };
+    renderSidebar(); renderProfile();
+    notif('✨ Perfil actualizado', 'ok');
+  } catch(e) { notif(e.message, 'fail'); }
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────
+function openModal() {
+  modalType = 'trabajo'; modalDays = [];
+  document.getElementById('m-desc').value = '';
+  document.getElementById('m-location').value = '';
+  if (!document.getElementById('m-date-start').value)
+    document.getElementById('m-date-start').value = new Date().toISOString().split('T')[0];
+  document.getElementById('m-date-end').value = '';
+  document.getElementById('m-time-start').value = '09:00';
+  document.getElementById('m-time-end').value = '17:00';
+  document.querySelectorAll('#modal-type-row .dtype-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.querySelectorAll('#modal-days-row .dtype-btn').forEach(b => b.classList.remove('active'));
+  resetMap();
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); }
+function closeModalOutside(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
+function pickType(el) {
+  document.querySelectorAll('#modal-type-row .dtype-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active'); modalType = el.dataset.t;
+}
+function toggleDay(el) {
+  const d = parseInt(el.dataset.d);
+  if (modalDays.includes(d)) { modalDays = modalDays.filter(x=>x!==d); el.classList.remove('active'); }
+  else { modalDays.push(d); el.classList.add('active'); }
+}
+
+async function saveEvent() {
+  const desc = document.getElementById('m-desc').value.trim();
+  if (!desc) { notif('Escribí una descripción', 'fail'); return; }
+  const btn = document.getElementById('btn-save-ev');
+  btn.textContent = 'Guardando…'; btn.disabled = true;
+  try {
+    const body = {
+      type: modalType,
+      description: desc,
+      date_start: document.getElementById('m-date-start').value || null,
+      date_end: document.getElementById('m-date-end').value || null,
+      time_start: document.getElementById('m-time-start').value,
+      time_end: document.getElementById('m-time-end').value,
+      recurring_days: modalDays,
+      location: document.getElementById('m-location').value.trim(),
+      lat: lMarker ? lMarker.lat : null,
+      lng: lMarker ? lMarker.lng : null,
+    };
+    const res = await api('POST', '/api/events', body);
+    // reload all events
+    await loadAll();
+    closeModal();
+    notif('✅ Horario guardado', 'ok');
+    const cv = document.querySelector('.view.active');
+    if (cv && cv.id === 'view-calendar') renderCalendar();
+    else if (cv && cv.id === 'view-week') renderWeek();
+    else if (cv && cv.id === 'view-avail') renderAvail();
+  } catch(e) { notif(e.message, 'fail'); }
+  finally { btn.textContent = 'Guardar'; btn.disabled = false; }
+}
+
+// ── MAP ────────────────────────────────────────────────────────────
+function geoDebounce(val) {
+  clearTimeout(geoTimer);
+  if (!val || val.length < 3) { resetMap(); return; }
+  geoTimer = setTimeout(() => geocode(val), 700);
+}
+
+async function geocode(val) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=1`);
+    const d = await r.json();
+    if (d && d[0]) initMap(parseFloat(d[0].lat), parseFloat(d[0].lon), val);
+  } catch {}
+}
+
+function initMap(lat, lng, label) {
+  document.getElementById('map-ph').style.display = 'none';
+  document.getElementById('leaflet-map').style.display = 'block';
+  if (!lMap) {
+    lMap = L.map('leaflet-map', { zoomControl: false }).setView([lat, lng], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(lMap);
+    L.control.zoom({ position: 'bottomright' }).addTo(lMap);
+  } else {
+    lMap.setView([lat, lng], 14);
+    if (lMarker && lMarker.mk) lMap.removeLayer(lMarker.mk);
+  }
+  const icon = L.divIcon({ html: `<div style="background:var(--accent,#c8ff00);width:12px;height:12px;border-radius:50%;border:2px solid #0a0a0f"></div>`, iconSize:[12,12], className:'' });
+  const mk = L.marker([lat, lng], { icon }).addTo(lMap).bindPopup(label);
+  lMarker = { lat, lng, mk };
+  setTimeout(() => lMap.invalidateSize(), 100);
+}
+
+function resetMap() {
+  document.getElementById('map-ph').style.display = 'flex';
+  document.getElementById('leaflet-map').style.display = 'none';
+  if (lMap && lMarker && lMarker.mk) lMap.removeLayer(lMarker.mk);
+  lMarker = null;
+}
+
+// ── NOTIFICATION ───────────────────────────────────────────────────
+let notifTimer;
+function notif(msg, type) {
+  const el = document.getElementById('notif');
+  el.textContent = msg; el.className = `notif show ${type||''}`;
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── RESIZE ─────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  if (!isMobile()) {
+    document.getElementById('sidebar-overlay').style.display = 'none';
+    document.getElementById('sidebar').classList.remove('open');
+    sidebarOpen = false;
+  }
+});
+
+// ── KEYBOARD ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ── ENTER KEY LOGIN ────────────────────────────────────────────────
+document.getElementById('l-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('l-user').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// ── BOOT ───────────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

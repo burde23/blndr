@@ -1,0 +1,14 @@
+name = "blndr"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "blndr-db"
+database_id = "bd689cf7-eed3-4b6a-b8ef-c6388fb31dc6"
+
+[vars]
+JWT_SECRET = "migrupo_secreta_blndr_2025!"
+
+# Para desarrollo local:
+# wrangler dev --local
