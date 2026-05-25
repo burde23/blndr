@@ -573,9 +573,17 @@ async function boot() {
 }
 
 async function loadAll() {
-  const data = await api('GET', '/api/users');
-  allUsers = data.users;
-  allEvents = data.events;
+  const [uData, eData] = await Promise.all([
+    api('GET', '/api/users'),
+    api('GET', '/api/events'),
+  ]);
+  allUsers = uData.users || [];
+  allEvents = (eData.events || []).map(ev => ({
+    ...ev,
+    recurring_days: Array.isArray(ev.recurring_days)
+      ? ev.recurring_days
+      : (() => { try { return JSON.parse(ev.recurring_days || '[]'); } catch { return []; } })(),
+  }));
 }
 
 function showAuth() {
@@ -710,11 +718,14 @@ function showView(v) {
 // ── EVENTS HELPERS ─────────────────────────────────────────────────
 function eventsForDate(date) {
   const dow = date.getDay();
-  const iso = date.toISOString().split('T')[0];
-  return allEvents.filter(ev => {
-    const rd = Array.isArray(ev.recurring_days) ? ev.recurring_days : JSON.parse(ev.recurring_days || '[]');
+  const iso = date.toISOString().split("T")[0];
+  return (allEvents || []).filter(ev => {
+    let rd;
+    if (Array.isArray(ev.recurring_days)) rd = ev.recurring_days;
+    else { try { rd = JSON.parse(ev.recurring_days || "[]"); } catch { rd = []; } }
+    if (!Array.isArray(rd)) rd = [];
     if (rd.length > 0) {
-      if (ev.date_start) { const s = new Date(ev.date_start + 'T00:00:00'); if (date < s) return false; }
+      if (ev.date_start) { const s = new Date(ev.date_start + "T00:00:00"); if (date < s) return false; }
       return rd.includes(dow);
     }
     return ev.date_start === iso;
